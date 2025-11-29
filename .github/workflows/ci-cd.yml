@@ -1,0 +1,82 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [16.x, 18.x]
+
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+    
+    - name: Install root dependencies
+      run: npm install
+    
+    - name: Install backend dependencies
+      working-directory: ./backend
+      run: npm install
+    
+    - name: Install web-client dependencies
+      working-directory: ./web-client
+      run: npm install
+    
+    - name: Run web-client tests
+      working-directory: ./web-client
+      run: npm test -- --watchAll=false
+    
+    - name: Build web-client
+      working-directory: ./web-client
+      run: npm run build
+
+  deploy-backend:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Deploy Backend
+      run: |
+        echo "Backend deployment step"
+        # Add your backend deployment commands here
+        # For example, deploy to Heroku, AWS, Digital Ocean, etc.
+
+  deploy-frontend:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Use Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18.x'
+    
+    - name: Install and Build
+      working-directory: ./web-client
+      run: |
+        npm install
+        npm run build
+    
+    - name: Deploy to GitHub Pages
+      uses: peaceiris/actions-gh-pages@v3
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: ./web-client/build
